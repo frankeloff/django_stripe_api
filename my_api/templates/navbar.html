@@ -1,0 +1,33 @@
+<div class="basket_container">
+    <a href="" id="register" class="button blue">Basket 
+        <span id="basket_total_nmb"> 
+        {% if products_total_nmb %}
+            ({{ products_total_nmb }})
+        {% else %}
+            (0)
+        {% endif %}</span>
+        <span class="button__line button__line--top"></span>
+        <span class="button__line button__line--right"></span>
+        <span class="button__line button__line--bottom"></span>
+        <span class="button__line button__line--left"></span>
+    </a>
+    {% if products_total_nmb %}
+        <a id="register" class="button blue" href="{% url 'cart-payment' %}">
+            <span class="button__line button__line--top"></span>
+            <span class="button__line button__line--right"></span>
+            <span class="button__line button__line--bottom"></span>
+            <span class="button__line button__line--left"></span>
+            place an order
+        </a>
+    {% endif %}
+    <div class="basket-items hidden">
+        <ul class="">
+            {% for product in products_in_basket %}
+                <li>
+                    {{ product.item.name }} {{ product.nmb }} шт. {{ product.price }}$
+                    <a class="delete-item" href="" data-item_id="{{ product.item.pk }}">x</a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>

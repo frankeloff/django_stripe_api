@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+{% load static %}
+{% block content %}
+  <html>
+    <head>
+      <link rel="shortcut icon" href="#">
+      <title>Buy cool new product</title>
+      <script src="https://js.stripe.com/v3/"></script>
+      <link rel="stylesheet" href="{% static 'style.css' %}">
+    </head>
+    <body>
+      <section>
+        <form id="form_buying_product" class='hidden' action="{% url 'basket-adding' %}"> {% csrf_token %}</form>
+        {% for item in items %} 
+          <div class="product">
+              <img src="https://i.imgur.com/EHyR2nP.png" alt="The cover of Stubborn Attachments" />
+              <div class="description">
+              <h3>{{ item.name }}</h3>
+              <h4>{{ item.description }}</h4>
+              <h5>${{ item.get_display_price }}</h5>
+              <a id="register" class="button blue" href="{% url 'product-page-view' item.id %}">
+                <span class="button__line button__line--top"></span>
+                <span class="button__line button__line--right"></span>
+                <span class="button__line button__line--bottom"></span>
+                <span class="button__line button__line--left"></span>
+                Add to cart
+              </a>
+          </div>
+          <div>
+            <a id="register" class="button blue" href="{% url 'landing-page' item.id %}">
+              <span class="button__line button__line--top"></span>
+              <span class="button__line button__line--right"></span>
+              <span class="button__line button__line--bottom"></span>
+              <span class="button__line button__line--left"></span>
+              Buy now
+          </a>
+          </div>
+        {% endfor %}
+        
+      </section>
+    {% include 'navbar.html' %}
+  </body>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+
+    <script src="{% static 'js/script.js' %}"></script>
+{% endblock %}

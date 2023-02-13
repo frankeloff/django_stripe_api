@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+{% load static %}
+<html>
+  <head>
+    <link rel="shortcut icon" href="#">
+    <title>Buy cool new product</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+  </head>
+  <body>
+    <section>
+      <div class="product">
+        <img src="https://i.imgur.com/EHyR2nP.png" alt="The cover of Stubborn Attachments" />
+        <div class="description">
+          <h3>{{ item.name }}</h3>
+          <h4>{{ item.description }}</h4>
+          <h5>${{ item.get_display_price }}</h5>
+        </div>
+      </div>
+      <div>
+        <form id="form_buying_product" class="form-inline" action="{% url 'basket-adding' %}"> {% csrf_token %}
+            <div class="form-group">
+                 <input type="number" class="form-control" name="number" id="number" required min="1">
+            </div>
+                <div class="form-group">
+                    <button type="submit" id="submit_btn" class="btn btn-success btn-buy"
+                        data-item_id = "{{ item.id }}"
+                        data-name ="{{ item.name }}"
+                        data-price ="{{ item.get_display_price }}"
+                    >
+                        Add to the basket
+                    </button>
+                </div>
+
+        </form>
+      {% include 'navbar.html' %}
+      <a id="register" class="button blue" href="{% url 'home-page' %}">
+        <span class="button__line button__line--top"></span>
+        <span class="button__line button__line--right"></span>
+        <span class="button__line button__line--bottom"></span>
+        <span class="button__line button__line--left"></span>
+        Back to the shop
+      </a>
+    </section>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
+
+    <script src="{% static 'js/script.js' %}"></script>
+  </body>
