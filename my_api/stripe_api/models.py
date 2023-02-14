@@ -5,7 +5,6 @@ class Item(models.Model):
     name = models.CharField(max_length=80, verbose_name="Название")
     description = models.TextField(verbose_name="Описание")
     price = models.IntegerField(verbose_name="Цена")
-    url = models.URLField()
 
     def __str__(self) -> str:
         return self.name
