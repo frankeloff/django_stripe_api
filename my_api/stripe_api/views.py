@@ -94,13 +94,15 @@ class ShoppingCartPayment(TemplateView):
 @csrf_exempt
 def strype_webhook(request):
     payload = request.body
-    sig_header = request.META["HTTP_STRIPE_SIGNATURE"]
     event = None
 
     try:
+        sig_header = request.META["HTTP_STRIPE_SIGNATURE"]
         event = stripe.Webhook.construct_event(
             payload, sig_header, os.environ.get("STRIPE_WEBHOOK_SECRET")
         )
+    except KeyError as e:
+        return HttpResponse(status=400)
     except ValueError as e:
         return HttpResponse(status=400)
     except stripe.error.SignatureVerificationError as e:
