@@ -147,7 +147,7 @@ class MultipleStripeIntentView(View):
                 metadata={
                     "items": "".join(
                         [
-                            f"{product.item.name} {product.nmb} pieces of {product.item.get_display_price()}$"
+                            f"{product.item.name} {product.nmb} pieces of {product.item.price}$\n"
                             for product in products
                         ]
                     )
@@ -176,7 +176,7 @@ class StripeIntentView(View):
                 customer=customer["id"],
                 setup_future_usage="off_session",
                 metadata={
-                    "items": f"{item.name} 1 piece for {item.get_display_price()}$",
+                    "items": f"{item.name} 1 piece for {item.price}$",
                     "session_key": False,
                 },
             )
