@@ -10,4 +10,7 @@ def getting_basket_info(request):
     products_in_basket = Order.objects.filter(session_key=session_key)
     products_total_nmb = products_in_basket.count()
 
-    return locals()
+    return {
+        "products_in_basket": products_in_basket,
+        "products_total_nmb": products_total_nmb,
+    }
