@@ -17,7 +17,7 @@
               <div class="description">
               <h3>{{ item.name }}</h3>
               <h4>{{ item.description }}</h4>
-              <h5>${{ item.get_display_price }}</h5>
+              <h5>${{ item.price }}</h5>
               <a id="register" class="button blue" href="{% url 'product-page-view' item.id %}">
                 <span class="button__line button__line--top"></span>
                 <span class="button__line button__line--right"></span>

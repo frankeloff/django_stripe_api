@@ -1,14 +1,27 @@
 import stripe
+from django.conf import settings
 from django.core.mail import send_mail
 from django.views.generic import TemplateView
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse, JsonResponse
 from django.views import View
-from django.db.models import Sum
-from .models import Item, Order
-import os
+from .stripe_api_services import (
+    get_all_items,
+    get_item_by_id,
+    get_products_in_basket_and_price_by_session,
+    empty_the_cart,
+    create_customer,
+    create_payment_intent_for_multiple_order,
+    create_payment_intent_for_single_order,
+    empty_the_cart_by_specific_item,
+    get_specific_item_by_session,
+    update_item_in_order,
+    create_new_order_item,
+    get_return_dict_for_basket_adding,
+    get_products_in_basket_by_session,
+)
 
-stripe.api_key = os.environ.get("STRIPE_SECRET_KEY")
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
 class SuccessView(TemplateView):
@@ -23,7 +36,7 @@ class HomePageView(TemplateView):
     template_name = "home.html"
 
     def get_context_data(self, **kwargs):
-        items = Item.objects.all()
+        items = get_all_items()
         context = super(HomePageView, self).get_context_data(**kwargs)
         context.update(
             {
@@ -38,12 +51,12 @@ class ProductLandingPageView(TemplateView):
 
     def get_context_data(self, **kwargs):
         item_id = self.kwargs["item_id"]
-        item = Item.objects.get(id=item_id)
+        item = get_item_by_id(item_id=item_id)
         context = super(ProductLandingPageView, self).get_context_data(**kwargs)
         context.update(
             {
                 "item": item,
-                "STRIPE_PUBLIC_KEY": os.environ.get("STRIPE_PUBLIC_KEY"),
+                "STRIPE_PUBLIC_KEY": settings.STRIPE_PUBLIC_KEY,
             }
         )
         return context
@@ -57,7 +70,7 @@ class ProductPageView(TemplateView):
         session_key = self.request.session.session_key
         if not session_key:
             self.request.session.cycle_key()
-        item = Item.objects.get(id=item_id)
+        item = get_item_by_id(item_id=item_id)
         context = super(ProductPageView, self).get_context_data(**kwargs)
         context.update(
             {
@@ -76,16 +89,15 @@ class ShoppingCartPayment(TemplateView):
         if not session_key:
             self.request.session.cycle_key()
         context = super(ShoppingCartPayment, self).get_context_data(**kwargs)
-        products_in_basket = Order.objects.filter(session_key=session_key)
-        final_price = Order.objects.filter(session_key=session_key).aggregate(
-            Sum("price")
-        )["price__sum"]
+        products_in_basket, final_price = get_products_in_basket_and_price_by_session(
+            session_key=session_key
+        )
         context.update(
             {
                 "session_key": session_key,
                 "products_in_basket": products_in_basket,
                 "final_price": final_price,
-                "STRIPE_PUBLIC_KEY": os.environ.get("STRIPE_PUBLIC_KEY"),
+                "STRIPE_PUBLIC_KEY": settings.STRIPE_PUBLIC_KEY,
             }
         )
         return context
@@ -99,7 +111,7 @@ def strype_webhook(request):
     try:
         sig_header = request.META["HTTP_STRIPE_SIGNATURE"]
         event = stripe.Webhook.construct_event(
-            payload, sig_header, os.environ.get("STRIPE_WEBHOOK_SECRET")
+            payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
         )
     except KeyError as e:
         return HttpResponse(status=400)
@@ -115,9 +127,7 @@ def strype_webhook(request):
         customer_email = intent["receipt_email"]
 
         if session_key:
-            products = Order.objects.filter(session_key=session_key)
-            for product in products:
-                product.delete()
+            empty_the_cart(session_key=session_key)
 
         send_mail(
             subject="Here is your product",
@@ -132,30 +142,17 @@ def strype_webhook(request):
 class MultipleStripeIntentView(View):
     def post(self, request, *args, **kwargs):
         try:
-            customer = stripe.Customer.create()
+            customer = create_customer()
             session_key = self.kwargs["session_key"]
-            products = Order.objects.filter(session_key=session_key)
-            final_price = Order.objects.filter(session_key=session_key).aggregate(
-                Sum("price")
-            )["price__sum"]
-            intent = stripe.PaymentIntent.create(
-                amount=int(final_price),
-                currency="usd",
-                automatic_payment_methods={
-                    "enabled": True,
-                },
-                customer=customer["id"],
-                setup_future_usage="off_session",
-                metadata={
-                    "items": "".join(
-                        [
-                            f"{product.item.name} {product.nmb} pieces of {product.item.price}$\n"
-                            for product in products
-                        ]
-                    )
-                    + f"\nFinal price: {final_price}$",
-                    "session_key": session_key,
-                },
+            (
+                products_in_basket,
+                final_price,
+            ) = get_products_in_basket_and_price_by_session(session_key=session_key)
+            intent = create_payment_intent_for_multiple_order(
+                session_key=session_key,
+                customer=customer,
+                final_price=final_price,
+                products_in_basket=products_in_basket,
             )
 
             return JsonResponse({"clientSecret": intent["client_secret"]})
@@ -166,21 +163,11 @@ class MultipleStripeIntentView(View):
 class StripeIntentView(View):
     def post(self, request, *args, **kwargs):
         try:
-            customer = stripe.Customer.create()
+            customer = create_customer()
             item_id = self.kwargs["item_id"]
-            item = Item.objects.get(id=item_id)
-            intent = stripe.PaymentIntent.create(
-                amount=item.price,
-                currency="usd",
-                automatic_payment_methods={
-                    "enabled": True,
-                },
-                customer=customer["id"],
-                setup_future_usage="off_session",
-                metadata={
-                    "items": f"{item.name} 1 piece for {item.price}$",
-                    "session_key": False,
-                },
+            item = get_item_by_id(item_id=item_id)
+            intent = create_payment_intent_for_single_order(
+                customer=customer, final_price=item.price, product_name=item.name
             )
             return JsonResponse({"clientSecret": intent["client_secret"]})
         except Exception as e:
@@ -188,44 +175,36 @@ class StripeIntentView(View):
 
 
 def basket_adding(request):
-    return_dict = {}
-
     session_key = request.session.session_key
 
     data = request.POST
     item_id = data.get("item_id")
     nmb = int(data.get("nmb"))
-    total_price = float(data.get("price")) * nmb
+    total_price = int(data.get("price")) * nmb
     is_delete = data.get("is_delete")
 
     if is_delete:
-        objects = Order.objects.filter(session_key=session_key, item=item_id)
-        for object in objects:
-            object.delete()
+        empty_the_cart_by_specific_item(session_key=session_key, item_id=item_id)
 
     else:
-        new_order_item = Order.objects.filter(session_key=session_key, item=item_id)
+        new_order_item = get_specific_item_by_session(
+            session_key=session_key, item_id=item_id
+        )
 
         if len(new_order_item) > 0:
-            new_order_item = new_order_item[0]
-            new_order_item.nmb += int(nmb)
-            new_order_item.price += float(total_price)
-            new_order_item.save(force_update=True)
+            update_item_in_order(
+                new_order_item=new_order_item, nmb=nmb, total_price=total_price
+            )
         else:
-            new_order_item = Order.objects.create(
-                session_key=session_key, item_id=item_id, nmb=nmb, price=total_price
+            create_new_order_item(
+                session_key=session_key,
+                item_id=item_id,
+                nmb=nmb,
+                total_price=total_price,
             )
 
-    products_in_basket = Order.objects.filter(session_key=session_key)
-    return_dict["items"] = []
-
-    if len(products_in_basket) > 0:
-        for product in products_in_basket:
-            product_dict = {}
-            product_dict["id"] = product.id
-            product_dict["name"] = product.item.name
-            product_dict["price"] = product.price
-            product_dict["nmb"] = product.nmb
-            return_dict["items"].append(product_dict)
+    return_dict = get_return_dict_for_basket_adding(
+        products_in_basket=get_products_in_basket_by_session(session_key=session_key)
+    )
 
     return JsonResponse(return_dict)
